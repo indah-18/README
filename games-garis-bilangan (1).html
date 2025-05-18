@@ -1,0 +1,159 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game Garis Bilangan Interaktif</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 30px; background-color: #f0f8ff; }
+    #number-line { margin: 40px auto; width: 95%; position: relative; height: 120px; }
+    .point {
+      display: inline-block;
+      width: 30px; height: 30px; line-height: 30px;
+      border: 1px solid #000; border-radius: 50%;
+      margin: 0 4px;
+      background-color: #fff;
+    }
+    .highlight { background-color: yellow; }
+    #character {
+      position: absolute;
+      width: 40px; height: 40px;
+      top: 5px;
+      transition: left 1s ease;
+    }
+    #question { font-size: 24px; margin-bottom: 10px; }
+    input { padding: 6px; font-size: 16px; width: 60px; }
+    button { padding: 6px 12px; font-size: 16px; margin: 5px; }
+    #feedback { font-weight: bold; margin-top: 15px; }
+    #scoreboard { margin-top: 20px; font-size: 18px; }
+    #illustration { margin: 20px; font-style: italic; color: #444; }
+  </style>
+</head>
+<body>
+  <h1>Game Garis Bilangan Interaktif</h1>
+  <div id="question"></div>
+  <div id="illustration"></div>
+  <div id="number-line"></div>
+  <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Smile_Face_Face_Emoji_Sticker_-_Free_Vector.svg/2048px-Smile_Face_Face_Emoji_Sticker_-_Free_Vector.svg.png" id="character" style="display:none;" />
+  <div>
+    Jawaban: <input type="number" id="answer" />
+    <button onclick="checkAnswer()">Cek</button>
+  </div>
+  <div id="feedback"></div>
+  <div id="scoreboard">Skor: <span id="score">0</span> | Level: <span id="level">1</span></div>
+  <div>
+    <button onclick="stepBackward()">Langkah Sebelumnya</button>
+    <button onclick="stepForward()">Langkah Berikutnya</button>
+  </div>
+
+  <audio id="correctSound" src="https://www.soundjay.com/button/sounds/button-3.mp3"></audio>
+  <audio id="wrongSound" src="https://www.soundjay.com/button/sounds/button-10.mp3"></audio>
+  <audio id="endSound" src="https://www.soundjay.com/misc/sounds/fail-trombone-01.mp3"></audio>
+
+  <script>
+    let questions = [], current = 0, score = 0;
+    let moveIndex = 0, path = [];
+
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function generateQuestions() {
+      questions = [];
+      for (let i = 0; i < 15; i++) {
+        let level = i < 5 ? 1 : (i < 10 ? 2 : 3);
+        let a = rand(-5, 5), b = rand(-5, 5), c = rand(-5, 5);
+        let soal = level === 3 ? `${a} ${b >= 0 ? '+' : '-'} ${Math.abs(b)} ${c >= 0 ? '+' : '-'} ${Math.abs(c)}` : `${a} ${b >= 0 ? '+' : '-'} ${Math.abs(b)}`;
+        let result = level === 3 ? a + b + c : a + b;
+        let illustration = level === 3 ? `Karakter mulai di ${a}, langkah ${b}, lalu ${c}.` : `Karakter mulai di ${a}, langkah ${b}.`;
+        questions.push({ level, soal, result, start: a, moves: level === 3 ? [b, c] : [b], illustration });
+      }
+    }
+
+    function loadQuestion() {
+      moveIndex = 0;
+      path = [];
+      const q = questions[current];
+      document.getElementById("question").innerText = `Level ${q.level}: Berapa hasil dari ${q.soal}?`;
+      document.getElementById("illustration").innerText = q.illustration;
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("answer").value = "";
+      document.getElementById("number-line").innerHTML = "";
+      document.getElementById("character").style.display = "block";
+
+      const line = document.getElementById("number-line");
+      for (let i = -15; i <= 15; i++) {
+        const div = document.createElement("div");
+        div.className = "point";
+        div.innerText = i;
+        if (i === q.start) div.classList.add("highlight");
+        line.appendChild(div);
+      }
+
+      const points = document.querySelectorAll(".point");
+      const pos = q.start + 15;
+      const character = document.getElementById("character");
+      const x = points[pos].offsetLeft + 5;
+      character.style.left = x + "px";
+
+      let temp = q.start;
+      path.push(temp);
+      q.moves.forEach(step => {
+        temp += step;
+        path.push(temp);
+      });
+    }
+
+    function moveCharacter(toIndex) {
+      const points = document.querySelectorAll(".point");
+      const pos = path[toIndex] + 15;
+      const x = points[pos].offsetLeft + 5;
+      document.getElementById("character").style.left = x + "px";
+    }
+
+    function stepForward() {
+      if (moveIndex < path.length - 1) {
+        moveIndex++;
+        moveCharacter(moveIndex);
+      }
+    }
+
+    function stepBackward() {
+      if (moveIndex > 0) {
+        moveIndex--;
+        moveCharacter(moveIndex);
+      }
+    }
+
+    function checkAnswer() {
+      const userAns = parseInt(document.getElementById("answer").value);
+      const q = questions[current];
+      const feedback = document.getElementById("feedback");
+
+      if (userAns === q.result) {
+        document.getElementById("correctSound").play();
+        feedback.innerText = "Jawaban benar!";
+        feedback.style.color = "green";
+        score++;
+        document.getElementById("score").innerText = score;
+        current++;
+        if (current < questions.length) {
+          document.getElementById("level").innerText = questions[current].level;
+          setTimeout(loadQuestion, 1000);
+        } else {
+          feedback.innerText = "Selamat! Kamu telah menyelesaikan semua level!";
+          document.getElementById("endSound").play();
+        }
+      } else {
+        document.getElementById("wrongSound").play();
+        feedback.innerText = "Jawaban salah. Coba lagi.";
+        feedback.style.color = "red";
+      }
+    }
+
+    generateQuestions();
+    loadQuestion();
+  </script>
+</body>
+</html>
